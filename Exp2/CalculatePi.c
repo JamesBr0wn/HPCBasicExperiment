@@ -16,7 +16,7 @@ int main(int argc, char** argv){
 
     if(my_id == 0){
         // 进程0向其他进程广播总投掷次数
-        total_hits = 20000000000;
+        total_hits = 2000000;
         for(i = 1; i < comm_sz; i++){
             MPI_Send(&total_hits, 1, MPI_LONG, i, 0, MPI_COMM_WORLD);
         }
