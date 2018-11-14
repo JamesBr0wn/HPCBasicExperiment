@@ -1,2 +1,2 @@
 # MPIProgramming
-My MPI programming exercise repo.
+My MPI programming experiment repo.
