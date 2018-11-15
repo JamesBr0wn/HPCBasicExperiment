@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 list(APPEND ExecutableList ParallelSortingByRegularSampling)
+list(APPEND ExecutableList TestDataGenerator)
 
 foreach(executable IN LISTS ExecutableList)
     add_executable(${executable} ${executable}.c)
@@ -16,5 +17,5 @@ foreach(executable IN LISTS ExecutableList)
                 LINK_FLAGS "${MPI_LINK_FLAGS}")
     endif()
 
-    add_custom_command(TARGET ${executable} POST_BUILD COMMAND time mpirun -np ${MPI_Proc_Num} ./${executable} > ${executable}.log 2>> ${executable}.log)
+#    add_custom_command(TARGET ${executable} POST_BUILD COMMAND time mpirun -np ${MPI_Proc_Num} ./${executable} > ${executable}.log 2>> ${executable}.log)
 endforeach()
