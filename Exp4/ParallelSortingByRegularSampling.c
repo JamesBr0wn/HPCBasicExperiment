@@ -10,17 +10,19 @@ int cmp ( const void *a , const void *b ) {
 
 
 // 数据读取
-void read_from_file(const char* file_name, int comm_sz, size_t* init_data_count, size_t* data_count, long** data){
+void read_from_file(const char* file_name, int comm_sz, size_t* init_data_count,
+        size_t* data_count, long** data){
     size_t i;
     FILE* input_file = fopen(file_name, "rb");
-    fread(init_data_count, sizeof(long), 1, input_file);
+    fread(init_data_count, sizeof(long), 1, input_file);    // 读取数据集大小
 
-    *data_count = (*init_data_count) % comm_sz == 0 ? (*init_data_count) : (*init_data_count)  + comm_sz - (*init_data_count) % comm_sz;
+    *data_count = (*init_data_count) % comm_sz == 0 ? (*init_data_count) :
+            (*init_data_count)  + comm_sz - (*init_data_count) % comm_sz;   // 计算Padding后的大小
 
-    *data = (long*)malloc((*data_count) * sizeof(long));
-    fread(*data, sizeof(long), *init_data_count, input_file);
+    *data = (long*)malloc((*data_count) * sizeof(long));        // 分配空间
+    fread(*data, sizeof(long), *init_data_count, input_file);   // 读入数据
 
-    for(i = *data_count - 1; i >= *init_data_count; i--){
+    for(i = *data_count - 1; i >= *init_data_count; i--){       // Padding
         (*data)[i] = LONG_MAX;
     }
     fclose(input_file);
@@ -39,21 +41,27 @@ void deliver_data(const size_t data_count, const long *data, int my_rank, int co
 }
 
 // 数据采样
-void select_pivot(size_t local_data_count, const long* local_data, int my_rank, int comm_sz, long** pivots){
+void select_pivot(size_t local_data_count, const long* local_data,
+        int my_rank, int comm_sz, long** pivots){
     long *sample = NULL, *local_sample = NULL;
+
+    // 本地数据采样
     size_t step = (local_data_count + comm_sz - 1)/ comm_sz, i = 0;
     local_sample = (long*)malloc(comm_sz * sizeof(long));
     for(i = 0; i < comm_sz; i++){
         local_sample[i] = local_data[i * step];
     }
 
+    // 进程0收集来自各个数据集的采样
     sample = (long*)malloc(comm_sz * comm_sz * sizeof(long));
-    MPI_Gather(local_sample, comm_sz, MPI_LONG, sample, comm_sz, MPI_LONG, 0, MPI_COMM_WORLD);
+    MPI_Gather(local_sample, comm_sz, MPI_LONG, sample, comm_sz,
+            MPI_LONG, 0, MPI_COMM_WORLD);
     if(my_rank == 0){
         qsort(sample, (size_t)comm_sz * comm_sz, sizeof(long), cmp);
     }
     free(local_sample);
 
+    // 进程0根据采样取得p-1个划分主元并广播给各个进程
     *pivots = (long*)malloc((comm_sz - 1) * sizeof(long));
     if(my_rank == 0){
         for(i = 0; i < comm_sz - 1; i++){
@@ -65,17 +73,17 @@ void select_pivot(size_t local_data_count, const long* local_data, int my_rank, 
 }
 
 // 数据交换
-void exchange_data(size_t local_data_count, long *local_data, long *pivots, int comm_sz, size_t *exchanged_data_count, long **exchanged_data, int **merge_counts){
+void exchange_data(size_t local_data_count, long *local_data, long *pivots, int comm_sz,
+        size_t *exchanged_data_count, long **exchanged_data, int **merge_counts){
     int i = 0, j = 0, *send_counts, *recv_counts, *send_disps, *recv_disps;
 
+    // 根据划分主元计算划分后各类大小，即向各进程发送数据块大小
     send_counts = (int*)malloc(comm_sz * sizeof(int));
     recv_counts = (int*)malloc(comm_sz * sizeof(int));
-
     for(i = 0; i < comm_sz; i++){
         send_counts[i] = 0;
         recv_counts[i] = 0;
     }
-
     for(i = 0; i < local_data_count; i++){
         while(j < comm_sz - 1 && local_data[i] > pivots[j]){
             j++;
@@ -87,16 +95,18 @@ void exchange_data(size_t local_data_count, long *local_data, long *pivots, int 
         send_counts[j]++;
     }
 
+    // 各进程接收从其他进程获得的数据块大小
     MPI_Alltoall(send_counts, 1, MPI_INT, recv_counts, 1, MPI_INT, MPI_COMM_WORLD);
 
+    // 分配接收缓冲区空间
     for(i = 0; i < comm_sz; i++){
         *exchanged_data_count += recv_counts[i];
     }
     *exchanged_data = (long*)malloc((*exchanged_data_count) * sizeof(long));
 
+    // 计算从各进程接收数据对应的偏移量
     send_disps = (int*)malloc(comm_sz * sizeof(int));
     recv_disps = (int*)malloc(comm_sz * sizeof(int));
-
     send_disps[0] = 0;
     recv_disps[0] = 0;
     for(i = 1; i < comm_sz; i++){
@@ -104,7 +114,9 @@ void exchange_data(size_t local_data_count, long *local_data, long *pivots, int 
         recv_disps[i] = recv_disps[i-1] + recv_counts[i-1];
     }
 
-    MPI_Alltoallv(local_data, send_counts, send_disps, MPI_LONG, *exchanged_data, recv_counts, recv_disps, MPI_LONG, MPI_COMM_WORLD);
+    // MPI_Alltoall进行数据交换
+    MPI_Alltoallv(local_data, send_counts, send_disps, MPI_LONG,
+            *exchanged_data, recv_counts, recv_disps, MPI_LONG, MPI_COMM_WORLD);
     *merge_counts = recv_counts;
 
     free(pivots);
@@ -115,8 +127,11 @@ void exchange_data(size_t local_data_count, long *local_data, long *pivots, int 
 }
 
 // 数据归并
-void merge_data(size_t exchanged_data_count, long* exchanged_data, int comm_sz, int* merge_counts, long** merged_data){
+void merge_data(size_t exchanged_data_count, long* exchanged_data,
+        int comm_sz, int* merge_counts, long** merged_data){
     int i = 0, j = 0, temp = 0, *merge_indexs, *merge_ends;
+
+    // 计算merge起始索引和结束索引
     merge_indexs = (int*)malloc(comm_sz * sizeof(int));
     merge_ends = (int*)malloc(comm_sz * sizeof(int));
     for(i = 0; i < comm_sz; i++){
@@ -125,6 +140,7 @@ void merge_data(size_t exchanged_data_count, long* exchanged_data, int comm_sz, 
         merge_ends[i] = temp;
     }
 
+    // 对数据进行n路merge
     *merged_data = (long*)malloc(exchanged_data_count * sizeof(long));
     long min;
     int min_idx;
@@ -132,7 +148,8 @@ void merge_data(size_t exchanged_data_count, long* exchanged_data, int comm_sz, 
         min = LONG_MAX;
         min_idx = -1;
         for(j = 0; j < comm_sz; j++){
-            if(merge_indexs[j] < merge_ends[j] && exchanged_data[merge_indexs[j]] <= min){
+            if(merge_indexs[j] < merge_ends[j] &&
+                    exchanged_data[merge_indexs[j]] <= min){
                 min = exchanged_data[merge_indexs[j]];
                 min_idx = j;
             }
@@ -148,10 +165,15 @@ void merge_data(size_t exchanged_data_count, long* exchanged_data, int comm_sz, 
 }
 
 // 数据汇集
-void gather_data(int sub_count, long* sub_data, long* data, int my_rank, int comm_sz){
-    int i, *recv_counts = (int*)malloc(comm_sz * sizeof(int)), *recv_disps = (int*)malloc(comm_sz * sizeof(int));
+void gather_data(int sub_count, long* sub_data, long* data,
+        int my_rank, int comm_sz){
+    int i, *recv_counts = (int*)malloc(comm_sz * sizeof(int)),
+        *recv_disps = (int*)malloc(comm_sz * sizeof(int));
+
+    // 进程0收集各进程部分数据大小
     MPI_Gather(&sub_count, 1, MPI_INT, recv_counts, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
+    // 进程0计算从各进程接收数据的偏移量
     if(my_rank == 0){
         recv_disps[0] = 0;
         for(i = 1; i < comm_sz; i++){
@@ -159,6 +181,7 @@ void gather_data(int sub_count, long* sub_data, long* data, int my_rank, int com
         }
     }
 
+    // MPI_Gatherv接收得到完整有序数据集
     MPI_Gatherv(sub_data, sub_count, MPI_LONG, data, recv_counts, recv_disps, MPI_LONG, 0, MPI_COMM_WORLD);
 
     free(sub_data);
