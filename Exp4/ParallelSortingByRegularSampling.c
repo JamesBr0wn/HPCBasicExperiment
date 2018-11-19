@@ -204,33 +204,33 @@ int main(int argc, char** argv){
     if(my_rank == 0) {
         read_from_file("psrs_data", comm_sz, &init_data_count, &data_count, &data);
     }
-    printf("Process %d read_from_file finished!\n", my_rank);
+//    printf("Process %d read_from_file finished!\n", my_rank);
 
     // 数据分发
     deliver_data(data_count, data, my_rank, comm_sz, &local_data_count, &local_data);
-    printf("Process %d deliver_data finished!\n", my_rank);
+//    printf("Process %d deliver_data finished!\n", my_rank);
 
     // 本地排序
     qsort(local_data, local_data_count, sizeof(long), cmp);
-    printf("Process %d qsort finished!\n", my_rank);
+//    printf("Process %d qsort finished!\n", my_rank);
 
     // 数据采样
     select_pivot(local_data_count, local_data, my_rank, comm_sz, &pivots);
-    printf("Process %d select_pivot finished!\n", my_rank);
+//    printf("Process %d select_pivot finished!\n", my_rank);
 
     // 数据交换
     exchange_data(local_data_count, local_data, pivots, comm_sz, &exchanged_data_count, &exchanged_data, &merge_counts);
-    printf("Process %d exchange_data finished!\n", my_rank);
+//    printf("Process %d exchange_data finished!\n", my_rank);
 
     // 数据归并
     merge_data(exchanged_data_count, exchanged_data, comm_sz, merge_counts,  &merged_data);
-    printf("Process %d merge_data finished!\n", my_rank);
+//    printf("Process %d merge_data finished!\n", my_rank);
 
     // 数据汇集
     gather_data((int)exchanged_data_count, merged_data, data, my_rank, comm_sz);
-    printf("Process %d gather_data finished!\n", my_rank);
+//    printf("Process %d gather_data finished!\n", my_rank);
 
-    printf("Process %d all finished!\n", my_rank);
+//    printf("Process %d all finished!\n", my_rank);
 
     if(my_rank == 0){
         for(i = 0; i < init_data_count; i++){
@@ -238,7 +238,7 @@ int main(int argc, char** argv){
                 printf("Error!\n");
                 break;
             }
-//            printf("%ld\n", data[i]);
+            printf("%ld\n", data[i]);
         }
         free(data);
     }
