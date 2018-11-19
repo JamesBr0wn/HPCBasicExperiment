@@ -3,10 +3,13 @@
 #include <limits.h>
 #include <mpi.h>
 
+// 比较函数，用于快排
 int cmp ( const void *a , const void *b ) {
     return *(long*)a > *(long*)b ? 1 : -1;
 }
 
+
+// 数据读取
 void read_from_file(const char* file_name, int comm_sz, size_t* init_data_count, size_t* data_count, long** data){
     size_t i;
     FILE* input_file = fopen(file_name, "rb");
@@ -23,15 +26,19 @@ void read_from_file(const char* file_name, int comm_sz, size_t* init_data_count,
     fclose(input_file);
 }
 
-void deliver_data(const size_t data_count, const long *data, int my_rank, int comm_sz, size_t *local_data_count, long **local_data){
+// 数据分发
+void deliver_data(const size_t data_count, const long *data, int my_rank, int comm_sz,
+        size_t *local_data_count,long **local_data){
     if(my_rank == 0) {
-        *local_data_count = data_count / comm_sz;
+        *local_data_count = data_count / comm_sz;   // 计算本地数据大小
     }
-    MPI_Bcast(local_data_count, 1, MPI_LONG, 0, MPI_COMM_WORLD);
-    *local_data = (long*)malloc((*local_data_count) * sizeof(long));
-    MPI_Scatter(data, (int)(*local_data_count), MPI_LONG, *local_data, (int)(*local_data_count), MPI_LONG, 0, MPI_COMM_WORLD);
+    MPI_Bcast(local_data_count, 1, MPI_LONG, 0, MPI_COMM_WORLD);        // 广播本地数据大小
+    *local_data = (long*)malloc((*local_data_count) * sizeof(long));    // 分配空间
+    MPI_Scatter(data, (int)(*local_data_count), MPI_LONG, *local_data,
+            (int)(*local_data_count), MPI_LONG, 0, MPI_COMM_WORLD);     // 分发数据
 }
 
+// 数据采样
 void select_pivot(size_t local_data_count, const long* local_data, int my_rank, int comm_sz, long** pivots){
     long *sample = NULL, *local_sample = NULL;
     size_t step = (local_data_count + comm_sz - 1)/ comm_sz, i = 0;
@@ -57,6 +64,7 @@ void select_pivot(size_t local_data_count, const long* local_data, int my_rank, 
     free(sample);
 }
 
+// 数据交换
 void exchange_data(size_t local_data_count, long *local_data, long *pivots, int comm_sz, size_t *exchanged_data_count, long **exchanged_data, int **merge_counts){
     int i = 0, j = 0, *send_counts, *recv_counts, *send_disps, *recv_disps;
 
@@ -106,6 +114,7 @@ void exchange_data(size_t local_data_count, long *local_data, long *pivots, int 
     free(recv_disps);
 }
 
+// 数据归并
 void merge_data(size_t exchanged_data_count, long* exchanged_data, int comm_sz, int* merge_counts, long** merged_data){
     int i = 0, j = 0, temp = 0, *merge_indexs, *merge_ends;
     merge_indexs = (int*)malloc(comm_sz * sizeof(int));
@@ -138,6 +147,7 @@ void merge_data(size_t exchanged_data_count, long* exchanged_data, int comm_sz, 
     free(exchanged_data);
 }
 
+// 数据汇集
 void gather_data(int sub_count, long* sub_data, long* data, int my_rank, int comm_sz){
     int i, *recv_counts = (int*)malloc(comm_sz * sizeof(int)), *recv_disps = (int*)malloc(comm_sz * sizeof(int));
     MPI_Gather(&sub_count, 1, MPI_INT, recv_counts, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -177,7 +187,7 @@ int main(int argc, char** argv){
     deliver_data(data_count, data, my_rank, comm_sz, &local_data_count, &local_data);
     printf("Process %d deliver_data finished!\n", my_rank);
 
-    // 本地排序+
+    // 本地排序
     qsort(local_data, local_data_count, sizeof(long), cmp);
     printf("Process %d qsort finished!\n", my_rank);
 
