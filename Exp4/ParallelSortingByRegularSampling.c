@@ -233,13 +233,13 @@ int main(int argc, char** argv){
 //    printf("Process %d all finished!\n", my_rank);
 
     if(my_rank == 0){
-        for(i = 0; i < init_data_count; i++){
-            if(i > 0 && data[i] < data[i-1]){
-                printf("Error!\n");
-                break;
-            }
-            printf("%ld\n", data[i]);
-        }
+//        for(i = 0; i < init_data_count; i++){
+//            if(i > 0 && data[i] < data[i-1]){
+//                printf("Error!\n");
+//                break;
+//            }
+//            printf("%ld\n", data[i]);
+//        }
         free(data);
     }
 
