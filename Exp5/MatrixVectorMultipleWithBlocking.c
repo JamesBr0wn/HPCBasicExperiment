@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <math.h>
 
-
 int my_rank, my_row_rank, my_col_rank, my_pivot_rank, comm_sz, row_comm_sz, col_comm_sz, pivot_comm_sz;
 MPI_Comm total_comm, row_comm, col_comm, pivot_comm;
 
