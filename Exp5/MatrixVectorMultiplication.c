@@ -29,7 +29,7 @@ void allocate_space(int m, int local_m, int local_n, double** local_mat_p, doubl
 }
 
 // 为按列划分矩阵创建自定义类型
-d eate_type(int m, int n, int local_n, MPI_Datatype* local_mat_t_ptr){
+void create_type(int m, int n, int local_n, MPI_Datatype* local_mat_t_ptr){
     MPI_Datatype mpi_vec_t;
     MPI_Type_vector(m, local_n, n, MPI_DOUBLE, &mpi_vec_t);
     MPI_Type_create_resized(mpi_vec_t, 0, local_n * sizeof(double), local_mat_t_ptr);
