@@ -21,6 +21,32 @@ void get_size(int* m_ptr, int* local_m_ptr, int* n_ptr, int* local_n_ptr){
     *local_n_ptr = *n_ptr / comm_sz;
 }
 
+// 产生模拟数据
+void generate_data(int n){
+    if(my_rank == 0){
+        FILE* file;
+        int i, j;
+        double temp;
+        file = fopen("matrix.txt", "w");
+        for(i = 0; i < n; i++){
+            for(j = 0; j < n; j++){
+                temp = rand() / (double)RAND_MAX * 1024;
+                fprintf(file, "%lf ", temp);
+            }
+            fputc('\n', file);
+        }
+        fclose(file);
+
+        file = fopen("vector.txt", "w");
+        for(i = 0; i < n; i++){
+            temp = rand() / (double)RAND_MAX * 1024;
+            fprintf(file, "%lf ", temp);
+        }
+        fputc('\n', file);
+        fclose(file);
+    }
+}
+
 // 为各进程局部运算数和结果分配内存空间
 void allocate_space(int m, int local_m, int local_n, double** local_mat_p, double** local_vec_p,  double** local_res_p){
     *local_mat_p = (double*)malloc(m * local_n * sizeof(double));
@@ -44,9 +70,13 @@ void read_matrix(int m, int n, int local_n, double *local_mat, MPI_Datatype loca
     if(my_rank == 0){	// 进程0
 		// 读入矩阵
         matrix = (double*)malloc(m * n * sizeof(double));
-        printf("Please enter the matrix:\n");
+//        printf("Please enter the matrix:\n");
+//        for(i = 0; i < m * n; i++){
+//            scanf("%lf", matrix + i);
+//        }
+        FILE* file = fopen("matrix.txt", "r");
         for(i = 0; i < m * n; i++){
-            scanf("%lf", matrix + i);
+            fscanf(file, "%lf", matrix + i);
         }
 		
 		// 将属于各个进程的部分矩阵列散发出去
@@ -67,9 +97,13 @@ void read_vector(int n, int local_n, double* local_vec){
     if(my_rank == 0){	// 进程0
 		// 读入向量
         vector = (double*)malloc(n * sizeof(double));
-        printf("Please enter the vector:\n");
-        for(i  = 0; i < n; i++){
-            scanf("%lf", vector + i);
+//        printf("Please enter the vector:\n");
+//        for(i  = 0; i < n; i++){
+//            scanf("%lf", vector + i);
+//        }
+        FILE* file = fopen("vector.txt", "r");
+        for(i = 0; i < n; i++){
+            fscanf(file, "%lf", vector + i);
         }
 		
 		// 将属于各个进程的部分向量散发出去
@@ -172,6 +206,8 @@ int main(int argc, char** argv){
     MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
 
     get_size(&m, &local_m, &n, &local_n);
+
+    generate_data(n);
 
     allocate_space(m, local_m, local_n, &local_mat, &local_vec, &local_res);
 

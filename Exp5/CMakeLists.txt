@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 list(APPEND ExecutableList MatrixVectorMultiplication)
 list(APPEND ExecutableList MatrixVectorMultipleWithBlocking)
+list(APPEND ExecutableList GenerateData)
 
 foreach(executable IN LISTS ExecutableList)
     add_executable(${executable} ${executable}.c)
