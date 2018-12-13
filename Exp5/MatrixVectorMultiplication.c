@@ -105,7 +105,7 @@ void read_vector(int n, int local_n, double* local_vec){
         for(i = 0; i < n; i++){
             fscanf(file, "%lf", vector + i);
         }
-		
+
 		// 将属于各个进程的部分向量散发出去
         MPI_Scatter(vector, local_n, MPI_DOUBLE, local_vec, local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
